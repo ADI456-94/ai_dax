@@ -4,10 +4,11 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 
-
+# Загружаем переменные окружения (если нужно)
 load_dotenv()
+
+# Используем секреты Streamlit для получения API ключа
 openai.api_key = st.secrets["openai"]["api_key"]
- 
 
 # Общая функция генерации запроса (SQL или DAX), учитывающая загруженные колонки
 def generate_query(user_query, df=None, mode="SQL"):
@@ -32,10 +33,11 @@ Always check for DISTINCT in aggregations when counting IDs like orders or custo
     try:
         response = openai.chat.completions.create(
             model="gpt-4",
-            messages=[
-                {"role": "system", "content": system_prompt[mode]},
-                {"role": "user", "content": f"{prefix[mode]} {schema_info}\nRequest: {user_query}"}
-            ],
+            messages=[{
+                "role": "system", "content": system_prompt[mode]
+            }, {
+                "role": "user", "content": f"{prefix[mode]} {schema_info}\nRequest: {user_query}"
+            }],
             max_tokens=300,
             temperature=0.7
         )
