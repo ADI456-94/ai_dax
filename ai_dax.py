@@ -7,7 +7,7 @@ import os
 
 load_dotenv()
 openai.api_key = st.secrets["openai"]["api_key"]
-openai.api_key = openai_api_key  
+ 
 
 # Общая функция генерации запроса (SQL или DAX), учитывающая загруженные колонки
 def generate_query(user_query, df=None, mode="SQL"):
