@@ -6,7 +6,7 @@ import os
 
 
 load_dotenv()
-openai_api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = st.secrets["openai"]["api_key"]
 openai.api_key = openai_api_key  
 
 # Общая функция генерации запроса (SQL или DAX), учитывающая загруженные колонки
