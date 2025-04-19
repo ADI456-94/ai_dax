@@ -17,7 +17,7 @@ agent = CodeAgent(
     tools=[DuckDuckGoSearchTool()],
     model=OpenAIServerModel(
         model_id="gpt-4",
-        api_key=openai.api_key
+        client_kwargs={"api_key": openai.api_key}
     )
 )
 
