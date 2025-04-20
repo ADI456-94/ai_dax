@@ -4,6 +4,7 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import matplotlib.pyplot as plt
+import sqlparse  # Импортируем библиотеку для форматирования SQL
 
 # Импорт агента
 from smolagents import CodeAgent, DuckDuckGoSearchTool, OpenAIServerModel
@@ -13,28 +14,14 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Инициализация агента через OpenAI
-import streamlit as st
-from dotenv import load_dotenv
-import os
-import openai
-from smolagents import CodeAgent, OpenAIServerModel
-
-# Загрузка переменных окружения
-load_dotenv()
-
-# Правильно сначала объявить переменную api_key:
 api_key = os.getenv("OPENAI_API_KEY")
 
-# Теперь проверка:
 if not api_key:
     st.error("Ошибка: API ключ не найден. Проверь .env файл или настройки секретов Streamlit.")
     st.stop()
 
-# Теперь передаем его OpenAI библиотеке (если нужно напрямую использовать openai)
 openai.api_key = api_key
 
-# И передаем в OpenAIServerModel
-# Создание модели
 model = OpenAIServerModel(
     model_id="gpt-4o",
     client_kwargs={"api_key": api_key}
@@ -46,6 +33,16 @@ agent = CodeAgent(
     tools=[]  # <-- добавили tools (пока без инструментов)
 )
 
+# Функция для автоформатирования SQL-запроса
+def format_sql(raw_sql: str) -> str:
+    try:
+        return sqlparse.format(
+            raw_sql,
+            reindent=True,           # Включаем авто‑переносы
+            keyword_case='upper'     # Все ключевые слова SQL в верхнем регистре
+        )
+    except Exception:
+        return raw_sql  # Если ошибка, возвращаем как есть
 
 # Генерация SQL/DAX запроса
 def generate_query(user_query, df=None, mode="SQL"):
@@ -77,6 +74,8 @@ ORDER BY
         task_prompt = f"{prefix[mode]} \n\nRequest: {user_query}"
 
         response = agent.run(task_prompt)
+        if mode == "SQL":
+            return format_sql(response)  # Применяем автоформатирование для SQL
         return response
     except Exception as e:
         return f"Ошибка при запросе к агенту: {e}"
@@ -94,10 +93,11 @@ Example: <Short explanation or usage example>"""
 
         response = openai.chat.completions.create(
             model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You suggest the best chart type and example for visualizing user data."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{
+                "role": "system", "content": "You suggest the best chart type and example for visualizing user data."
+            }, {
+                "role": "user", "content": prompt
+            }],
             max_tokens=100,
             temperature=0.4
         )
@@ -118,10 +118,11 @@ Y: <column_name>"""
 
         response = openai.chat.completions.create(
             model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Suggest appropriate X and Y columns for a chart."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{
+                "role": "system", "content": "Suggest appropriate X and Y columns for a chart."
+            }, {
+                "role": "user", "content": prompt
+            }],
             max_tokens=50,
             temperature=0.3
         )
