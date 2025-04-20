@@ -5,3 +5,4 @@ streamlit
 pandas
 matplotlib
 openpyxl
+sqlparse>=0.4.3
