@@ -4,24 +4,25 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import matplotlib.pyplot as plt
-import sqlparse  # Импортируем библиотеку для форматирования SQL
+import sqlparse
 
 # Импорт агента
-from smolagents import CodeAgent, DuckDuckGoSearchTool, OpenAIServerModel
+from smolagents import CodeAgent, OpenAIServerModel
 
 # Загрузка переменных окружения
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Инициализация агента через OpenAI
+# Проверка на наличие API ключа
 api_key = os.getenv("OPENAI_API_KEY")
-
 if not api_key:
     st.error("Ошибка: API ключ не найден. Проверь .env файл или настройки секретов Streamlit.")
     st.stop()
 
+# Передача API ключа в OpenAI
 openai.api_key = api_key
 
+# Создание модели
 model = OpenAIServerModel(
     model_id="gpt-4o",
     client_kwargs={"api_key": api_key}
@@ -33,16 +34,16 @@ agent = CodeAgent(
     tools=[]  # <-- добавили tools (пока без инструментов)
 )
 
-# Функция для автоформатирования SQL-запроса
+# Функция для форматирования SQL
 def format_sql(raw_sql: str) -> str:
     try:
         return sqlparse.format(
             raw_sql,
-            reindent=True,           # Включаем авто‑переносы
-            keyword_case='upper'     # Все ключевые слова SQL в верхнем регистре
+            reindent=True,        # авто‑переносы
+            keyword_case='upper'  # ключевые слова в ВЕРХНЕМ регистре
         )
     except Exception:
-        return raw_sql  # Если ошибка, возвращаем как есть
+        return raw_sql
 
 # Генерация SQL/DAX запроса
 def generate_query(user_query, df=None, mode="SQL"):
@@ -75,7 +76,7 @@ ORDER BY
 
         response = agent.run(task_prompt)
         if mode == "SQL":
-            return format_sql(response)  # Применяем автоформатирование для SQL
+            return format_sql(response)
         return response
     except Exception as e:
         return f"Ошибка при запросе к агенту: {e}"
@@ -178,7 +179,11 @@ def main():
                 st.error(result)
             else:
                 st.subheader("Сгенерированный код и объяснение:")
-                st.markdown(result)
+                # Если это SQL, используем st.code с подсветкой, иначе Markdown
+                if language_choice == "SQL":
+                    st.code(result, language="sql")
+                else:
+                    st.markdown(result)
 
                 suggestion = suggest_chart_type(user_query, df)
                 if not suggestion.startswith("Error"):
