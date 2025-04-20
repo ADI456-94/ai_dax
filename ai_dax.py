@@ -35,9 +35,10 @@ openai.api_key = api_key
 
 # И передаем в OpenAIServerModel
 model = OpenAIServerModel(
-    model="gpt-3.5-turbo",
+    model_id="gpt-4o",  # <---- добавляем сюда
     client_kwargs={"api_key": api_key}
 )
+
 
 agent = CodeAgent(model=model)
 
