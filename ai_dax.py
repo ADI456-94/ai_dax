@@ -34,13 +34,17 @@ if not api_key:
 openai.api_key = api_key
 
 # И передаем в OpenAIServerModel
+# Создание модели
 model = OpenAIServerModel(
-    model_id="gpt-4o",  # <---- добавляем сюда
+    model_id="gpt-4o",
     client_kwargs={"api_key": api_key}
 )
 
-
-agent = CodeAgent(model=model)
+# Создание агента
+agent = CodeAgent(
+    model=model,
+    tools=[]  # <-- добавили tools (пока без инструментов)
+)
 
 
 # Генерация SQL/DAX запроса
