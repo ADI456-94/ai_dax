@@ -51,9 +51,7 @@ agent = CodeAgent(
 def generate_query(user_query, df=None, mode="SQL"):
     system_prompt = {
         "SQL": """You are a helpful assistant that translates natural language into SQL queries.
-Use correct logic for metrics like AOV (average order value = total revenue divided by number of distinct orders).
-Use window functions when needed for cumulative calculations.
-Always check for DISTINCT in aggregations when counting IDs like orders or customers.""",
+    Start by generating the basic query structure. Then, I'll provide further instructions for each part of the query..""",
         "DAX": "You are a helpful assistant that generates DAX formulas based on user requests."
     }
 
