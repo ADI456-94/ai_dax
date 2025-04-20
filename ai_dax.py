@@ -51,7 +51,20 @@ agent = CodeAgent(
 def generate_query(user_query, df=None, mode="SQL"):
     system_prompt = {
         "SQL": """You are a helpful assistant that translates natural language into SQL queries.
-    Start by generating the basic query structure. Then, I'll provide further instructions for each part of the query..""",
+Format the SQL using one clause per line, uppercase keywords, indent selected columns by two spaces.  
+Example:
+```sql
+SELECT
+  customer_id,
+  SUM(amount) AS total_amount
+FROM
+  orders
+WHERE
+  order_date >= '2025-01-01'
+GROUP BY
+  customer_id
+ORDER BY
+  total_amount DESC;""",
         "DAX": "You are a helpful assistant that generates DAX formulas based on user requests."
     }
 
