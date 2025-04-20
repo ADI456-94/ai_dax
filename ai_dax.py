@@ -13,13 +13,18 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Инициализация агента через OpenAI
-agent = CodeAgent(
-    tools=[DuckDuckGoSearchTool()],
-    model=OpenAIServerModel(
-        model_id="gpt-4",
-        client_kwargs={"api_key": openai.api_key}
-    )
+if not api_key:
+    st.error("Ошибка: API ключ не найден. Проверь .env файл или настройки секретов Streamlit.")
+    st.stop()
+
+# Создаем модель, передавая API ключ
+model = OpenAIServerModel(
+    model="gpt-3.5-turbo",
+    client_kwargs={"api_key": api_key}
 )
+
+# Далее создаешь агента
+agent = CodeAgent(model=model)
 
 # Генерация SQL/DAX запроса
 def generate_query(user_query, df=None, mode="SQL"):
