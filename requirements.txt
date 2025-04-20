@@ -3,4 +3,4 @@ smolagents
 python-dotenv
 streamlit
 pandas
-
+matplotlib
