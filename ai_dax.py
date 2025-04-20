@@ -13,18 +13,34 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Инициализация агента через OpenAI
+import streamlit as st
+from dotenv import load_dotenv
+import os
+import openai
+from smolagents import CodeAgent, OpenAIServerModel
+
+# Загрузка переменных окружения
+load_dotenv()
+
+# Правильно сначала объявить переменную api_key:
+api_key = os.getenv("OPENAI_API_KEY")
+
+# Теперь проверка:
 if not api_key:
     st.error("Ошибка: API ключ не найден. Проверь .env файл или настройки секретов Streamlit.")
     st.stop()
 
-# Создаем модель, передавая API ключ
+# Теперь передаем его OpenAI библиотеке (если нужно напрямую использовать openai)
+openai.api_key = api_key
+
+# И передаем в OpenAIServerModel
 model = OpenAIServerModel(
     model="gpt-3.5-turbo",
     client_kwargs={"api_key": api_key}
 )
 
-# Далее создаешь агента
 agent = CodeAgent(model=model)
+
 
 # Генерация SQL/DAX запроса
 def generate_query(user_query, df=None, mode="SQL"):
