@@ -1,215 +1,121 @@
 import openai
 import pandas as pd
 import streamlit as st
+import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 import os
-import matplotlib.pyplot as plt
-import sqlparse
 
-# Импорт агента
 from smolagents import CodeAgent, OpenAIServerModel
 
 # Загрузка переменных окружения
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Проверка на наличие API ключа
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     st.error("Ошибка: API ключ не найден. Проверь .env файл или настройки секретов Streamlit.")
     st.stop()
 
-# Передача API ключа в OpenAI
-openai.api_key = api_key
-
-# Создание модели
 model = OpenAIServerModel(
     model_id="gpt-4o",
     client_kwargs={"api_key": api_key}
 )
+agent = CodeAgent(model=model, tools=[])
 
-# Создание агента
-agent = CodeAgent(
-    model=model,
-    tools=[]  # <-- добавили tools (пока без инструментов)
-)
+# Функция генерации SQL или DAX запросов
+def generate_query(user_query, df, mode="SQL"):
+    columns = ", ".join(df.columns)
+    prompt = f"""
+You are an expert assistant in writing {mode} queries.
 
-# Функция для форматирования SQL
-def format_sql(raw_sql: str) -> str:
-    try:
-        return sqlparse.format(
-            raw_sql,
-            reindent=True,        # авто‑переносы
-            keyword_case='upper'  # ключевые слова в ВЕРХНЕМ регистре
-        )
-    except Exception:
-        return raw_sql
+The available columns are: {columns}.
 
-# Генерация SQL/DAX запроса
-def generate_query(user_query, df=None, mode="SQL"):
-    system_prompt = {
-        "SQL": """You are a helpful assistant that translates natural language into SQL queries.
-Format the SQL using one clause per line, uppercase keywords, indent selected columns by two spaces.  
-Example:
-```sql
-SELECT
-  customer_id,
-  SUM(amount) AS total_amount
-FROM
-  orders
-WHERE
-  order_date >= '2025-01-01'
-GROUP BY
-  customer_id
-ORDER BY
-  total_amount DESC;""",
-        "DAX": "You are a helpful assistant that generates DAX formulas based on user requests."
-    }
-
-    prefix = {
-        "SQL": "You are a helpful assistant that translates natural language into SQL queries. Use window functions like SUM() OVER for cumulative totals when needed. Assume the table includes fields like 'Date' or 'ID' for ordering.",
-        "DAX": "Generate a DAX formula using the columns from this table: "
-    }
-
-    try:
-        task_prompt = f"{prefix[mode]} \n\nRequest: {user_query}"
-
-        response = agent.run(task_prompt)
-        if mode == "SQL":
-            return format_sql(response)
-        return response
-    except Exception as e:
-        return f"Ошибка при запросе к агенту: {e}"
-
-# Подсказка по типу графика
-def suggest_chart_type(user_query, df):
-    try:
-        prompt = f"""You are a helpful assistant that suggests the best chart type and gives an example based on the user's question and the dataset columns.
+Translate the following user request into a valid {mode} query or formula.
 Request: {user_query}
-Columns: {', '.join(df.columns)}
 
-Respond in the following format:
-Chart Type: <Line chart / Bar chart / Histogram / Pie chart>
-Example: <Short explanation or usage example>"""
-
-        response = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[{
-                "role": "system", "content": "You suggest the best chart type and example for visualizing user data."
-            }, {
-                "role": "user", "content": prompt
-            }],
-            max_tokens=100,
-            temperature=0.4
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Error suggesting chart type: {e}"
-
-# Подсказка по осям графика
-def suggest_chart_columns(user_query, df):
+Respond ONLY with the {mode} code block.
+Do NOT add explanations, comments, print statements, or execution results.
+Just return the raw {mode} code.
+"""
     try:
-        prompt = f"""You are an assistant that suggests which columns to use for plotting a chart based on a user query and the dataset.
-Request: {user_query}
-Columns: {', '.join(df.columns)}
-
-Respond in the following format:
-X: <column_name>
-Y: <column_name>"""
-
-        response = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[{
-                "role": "system", "content": "Suggest appropriate X and Y columns for a chart."
-            }, {
-                "role": "user", "content": prompt
-            }],
-            max_tokens=50,
-            temperature=0.3
-        )
-        return response.choices[0].message.content.strip()
+        response = agent.run(prompt)
+        if isinstance(response, dict):
+            response = response.get("output", "")
+        elif isinstance(response, list):
+            response = "\n".join(str(x) for x in response)
+        return response.strip()
     except Exception as e:
-        return f"Error suggesting columns: {e}"
+        return f"Ошибка при генерации {mode}: {e}"
 
-# Загрузка данных
+# Функция загрузки данных
 def load_data():
-    uploaded_file = st.file_uploader("\U0001F4C2 Загрузите файл CSV или Excel", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("Загрузите CSV или Excel файл", type=["csv", "xlsx"])
     if uploaded_file:
         try:
             df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith(".xlsx") else pd.read_csv(uploaded_file)
-            st.write("Данные загружены:")
+            st.success("Файл успешно загружен.")
             st.dataframe(df)
             return df
         except Exception as e:
             st.error(f"Ошибка при загрузке файла: {e}")
     return None
 
-# Визуализация
-def draw_chart(df, chart_type, x_col, y_col):
-    st.subheader(f"{chart_type} по {x_col} и {y_col}")
-    try:
-        if chart_type == "Линейный":
-            st.line_chart(df.set_index(x_col)[y_col])
-        elif chart_type == "Столбчатый":
-            st.bar_chart(df.set_index(x_col)[y_col])
-        elif chart_type == "Гистограмма":
-            fig, ax = plt.subplots()
-            ax.hist(df[y_col], bins=20)
-            st.pyplot(fig)
-        elif chart_type == "Круговая диаграмма":
-            fig, ax = plt.subplots()
-            pie_data = df.groupby(x_col)[y_col].sum()
-            ax.pie(pie_data, labels=pie_data.index, autopct='%1.1f%%')
-            st.pyplot(fig)
-    except Exception as e:
-        st.error(f"Ошибка при построении графика: {e}")
+# Функция для создания графиков
+def create_chart(df, chart_type, x_col, y_col):
+    if chart_type == "Line Chart":
+        st.line_chart(df[[x_col, y_col]])
+    elif chart_type == "Bar Chart":
+        st.bar_chart(df[[x_col, y_col]])
+    elif chart_type == "Histogram":
+        fig, ax = plt.subplots()
+        ax.hist(df[y_col], bins=20)
+        ax.set_xlabel(y_col)
+        ax.set_ylabel('Frequency')
+        st.pyplot(fig)
+    elif chart_type == "Pie Chart":
+        fig, ax = plt.subplots()
+        df[y_col].value_counts().plot.pie(ax=ax, autopct='%1.1f%%')
+        st.pyplot(fig)
 
 # Главная функция
 def main():
-    st.title("\U0001F9E0 AI Assistant: SQL & DAX Generator + Chart Suggestion")
+    st.title("AI SQL & DAX Generator + Chart Maker")
 
-    df = load_data()
-    if df is not None:
-        user_query = st.text_input("Введите ваш аналитический запрос (естественный язык)")
-        language_choice = st.selectbox("Выберите язык запроса", ["SQL", "DAX"])
+    df = load_data()  # Загрузка данных
+    if df is None:
+        return
+
+    # Вкладки для выбора функций
+    tab1, tab2 = st.tabs(["🧠 Генерация SQL/DAX", "📊 Создание графиков"])
+
+    # Генерация SQL/DAX запросов
+    with tab1:
+        st.header("Генерация SQL или DAX запросов")
+        user_query = st.text_input("Введите ваш запрос на естественном языке:")
+        mode = st.selectbox("Выберите язык запроса", ["SQL", "DAX"])
 
         if user_query:
-            result = generate_query(user_query, df, language_choice)
-            if str(result).startswith("Ошибка"):
-                st.error(result)
-            else:
-                st.subheader("Сгенерированный код и объяснение:")
-                # Если это SQL, используем st.code с подсветкой, иначе Markdown
-                if language_choice == "SQL":
-                    st.code(result, language="sql")
+            if st.button("Сгенерировать запрос"):
+                query_result = generate_query(user_query, df, mode)
+                if "Ошибка" in query_result:
+                    st.error(query_result)
                 else:
-                    st.markdown(result)
+                    st.subheader(f"{mode} запрос:")
+                    st.code(query_result, language="sql" if mode == "SQL" else "text")
 
-                suggestion = suggest_chart_type(user_query, df)
-                if not suggestion.startswith("Error"):
-                    st.success(f"\U0001F4A1 Рекомендация по визуализации:\n\n{suggestion}")
+    # Создание графиков
+    with tab2:
+        st.header("Создание графиков")
+        
+        # Выбор типа графика
+        chart_type = st.selectbox("Выберите тип графика", ["Line Chart", "Bar Chart", "Histogram", "Pie Chart"])
 
-                    col_suggestion = suggest_chart_columns(user_query, df)
-                    if not col_suggestion.startswith("Error") and "X:" in col_suggestion and "Y:" in col_suggestion:
-                        try:
-                            x_field = col_suggestion.split("X:")[1].split("Y:")[0].strip()
-                            y_field = col_suggestion.split("Y:")[1].strip()
-                            st.info(f"Предлагаемые поля:\n- X: {x_field}\n- Y: {y_field}")
+        # Выбор столбцов для осей графика
+        x_col = st.selectbox("Выберите столбец для оси X", df.columns)
+        y_col = st.selectbox("Выберите столбец для оси Y", df.columns)
 
-                            if "Line" in suggestion:
-                                draw_chart(df, "Линейный", x_field, y_field)
-                            elif "Bar" in suggestion:
-                                draw_chart(df, "Столбчатый", x_field, y_field)
-                            elif "Histogram" in suggestion:
-                                draw_chart(df, "Гистограмма", x_field, y_field)
-                            elif "Pie" in suggestion:
-                                draw_chart(df, "Круговая диаграмма", x_field, y_field)
-                        except Exception as e:
-                            st.warning(f"Ошибка при автоотрисовке: {e}")
-                    else:
-                        st.warning("Не удалось определить поля для осей.")
-                else:
-                    st.warning(suggestion)
+        if st.button("Построить график"):
+            create_chart(df, chart_type, x_col, y_col)
 
 if __name__ == "__main__":
     main()
