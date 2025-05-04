@@ -25,18 +25,42 @@ agent = CodeAgent(model=model, tools=[])
 # Функция генерации SQL или DAX запросов
 def generate_query(user_query, df, mode="SQL"):
     columns = ", ".join(df.columns)
-    prompt = f"""
-You are an expert assistant in writing {mode} queries.
+    
+    if mode == "SQL":
+        prompt = f"""
+You are an expert assistant in writing SQL queries.
 
 The available columns are: {columns}.
 
-Translate the following user request into a valid {mode} query or formula.
-Request: {user_query}
+Translate the following user request into a SQL query.
 
-Respond ONLY with the {mode} code block.
-Do NOT add explanations, comments, print statements, or execution results.
-Just return the raw {mode} code.
+The SQL query MUST strictly follow this structure:
+1. SELECT required columns or aggregations
+2. FROM the available dataset
+3. WHERE if logical
+3. GROUP BY if needed (even if the user does not mention it)
+4. ORDER BY if logical
+
+Only output the raw SQL code inside a code block.
+User request:
+{user_query}
 """
+    elif mode == "DAX":
+        prompt = f"""
+You are an expert assistant in writing DAX formulas for Power BI.
+
+The available columns are: {columns}.
+
+Translate the following user request into a valid DAX formula.
+
+Use proper DAX functions such as SUMMARIZE, CALCULATE, FILTER, or others depending on the request.
+The formula should be clean, efficient, and ready to use in Power BI.
+
+Only output the raw DAX code inside a code block.
+User request:
+{user_query}
+"""
+
     try:
         response = agent.run(prompt)
         if isinstance(response, dict):
@@ -46,6 +70,7 @@ Just return the raw {mode} code.
         return response.strip()
     except Exception as e:
         return f"Ошибка при генерации {mode}: {e}"
+
 
 # Функция загрузки данных
 def load_data():
@@ -79,13 +104,12 @@ def create_chart(df, chart_type, x_col, y_col):
 
 # Главная функция
 def main():
-    st.title("AI SQL & DAX Generator + Chart Maker")
+    st.title("ChatGPT for SQL & DAX + Chart Maker")
 
     df = load_data()  # Загрузка данных
     if df is None:
         return
 
-    # Вкладки для выбора функций
     tab1, tab2 = st.tabs(["🧠 Генерация SQL/DAX", "📊 Создание графиков"])
 
     # Генерация SQL/DAX запросов
@@ -107,10 +131,8 @@ def main():
     with tab2:
         st.header("Создание графиков")
         
-        # Выбор типа графика
         chart_type = st.selectbox("Выберите тип графика", ["Line Chart", "Bar Chart", "Histogram", "Pie Chart"])
 
-        # Выбор столбцов для осей графика
         x_col = st.selectbox("Выберите столбец для оси X", df.columns)
         y_col = st.selectbox("Выберите столбец для оси Y", df.columns)
 
